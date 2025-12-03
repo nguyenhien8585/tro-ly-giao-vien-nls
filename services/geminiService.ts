@@ -47,12 +47,115 @@ QUY TẮC SỐNG CÒN (BẮT BUỘC TUÂN THỦ 100%):
 
 5. NỐI TRANG:
    - File input thường là PDF/Ảnh bị ngắt trang. Bạn phải tự động NỐI LIỀN nội dung các trang lại. Không được để bảng bị đứt quãng giữa chừng.
+
+6. XỬ LÝ CÔNG THỨC TOÁN HỌC (CRITICAL - MỚI):
+   ⚠️ QUAN TRỌNG: Khi gặp công thức toán học, BẮT BUỘC viết theo format LaTeX:
+   
+   A. CÔNG THỨC INLINE (trong dòng văn bản):
+      - Dùng dấu $ đơn: $công_thức$
+      - Ví dụ: "Phương trình $ax^2 + bx + c = 0$ với $a \\neq 0$"
+      - Ví dụ: "Biệt thức $\\Delta = b^2 - 4ac$"
+   
+   B. CÔNG THỨC DISPLAY (hiển thị riêng, căn giữa):
+      - Dùng dấu $$ kép: $$công_thức$$
+      - Ví dụ:
+        $$
+        x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}
+        $$
+   
+   C. CÔNG THỨC TRONG BẢNG:
+      - Vẫn dùng $ hoặc $$ như bình thường
+      - Ví dụ trong cell: "Tính $\\Delta = b^2 - 4ac$"
+   
+   D. CÁC KÝ HIỆU TOÁN PHẢI DÙNG LaTeX:
+      - Phân số: \\frac{tử}{mẫu}
+      - Căn bậc hai: \\sqrt{x}
+      - Lũy thừa: x^2 (hoặc x^{10} nếu >1 chữ số)
+      - Chỉ số dưới: x_1, x_2
+      - Khác không: \\neq
+      - Lớn hơn/nhỏ hơn: >, <, \\geq, \\leq
+      - Dấu cộng trừ: \\pm
+      - Tích phân: \\int
+      - Sigma: \\sum
+      - Pi: \\pi
+      - Alpha, Beta: \\alpha, \\beta
+   
+   ❌ KHÔNG ĐƯỢC VIẾT:
+      - "x2 + 5x + 6 = 0" (thiếu dấu $)
+      - "Δ = b² - 4ac" (dùng ký tự Unicode thay vì LaTeX)
+      - "x = (-b ± √(b²-4ac))/2a" (không dùng format LaTeX)
+   
+   ✅ PHẢI VIẾT:
+      - "$x^2 + 5x + 6 = 0$"
+      - "$\\Delta = b^2 - 4ac$"
+      - "$$x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$"
+
+7. XỬ LÝ ẢNH TỪ FILE INPUT (CRITICAL - MỚI):
+   Khi phát hiện ảnh/hình vẽ/biểu đồ trong file input:
+   
+   A. MÔ TÃ CHI TIẾT:
+      - Mô tả chi tiết nội dung ảnh bằng văn bản
+      - Nếu là biểu đồ: mô tả trục, giá trị, xu hướng
+      - Nếu là hình vẽ hình học: mô tả kích thước, góc, tên các điểm
+   
+   B. ĐÁNH DẤU VỊ TRÍ CHÈN ẢNH:
+      - Sử dụng marker: [IMAGE_PLACEHOLDER_X]
+      - X là số thứ tự ảnh (1, 2, 3,...)
+      - Ví dụ:
+        ```
+        Quan sát hình vẽ sau:
+        
+        [IMAGE_PLACEHOLDER_1]
+        *Hình 1: Đồ thị hàm số y = x^2*
+        
+        Từ đồ thị ta thấy...
+        ```
+   
+   C. CHÚ THÍCH ẢNH:
+      - Sau mỗi [IMAGE_PLACEHOLDER_X], thêm dòng chú thích
+      - Format: *Hình X: Mô tả ngắn gọn*
+   
+   D. MÔ TẢ THAY THẾ (fallback):
+      - Nếu không chèn được ảnh, cung cấp mô tả chi tiết
+      - Ví dụ: "Hình vẽ thể hiện tam giác ABC vuông tại A, với AB = 3cm, AC = 4cm"
+
+8. VÍ DỤ TỔNG HỢP:
+
+   ```markdown
+   ## Bài 1: Giải phương trình bậc hai
+   
+   Xét phương trình $ax^2 + bx + c = 0$ với $a \\neq 0$.
+   
+   **Công thức nghiệm:**
+   
+   $$
+   x = \\frac{-b \\pm \\sqrt{\\Delta}}{2a}
+   $$
+   
+   trong đó biệt thức $\\Delta = b^2 - 4ac$.
+   
+   [IMAGE_PLACEHOLDER_1]
+   *Hình 1: Đồ thị hàm số bậc hai*
+   
+   **Ví dụ:** Giải phương trình $x^2 - 5x + 6 = 0$
+   
+   Ta có: $a = 1$, $b = -5$, $c = 6$
+   
+   Tính $\\Delta = (-5)^2 - 4(1)(6) = 25 - 24 = 1 > 0$
+   
+   Phương trình có hai nghiệm:
+   $$
+   x_1 = \\frac{5 + 1}{2} = 3
+   $$
+   $$
+   x_2 = \\frac{5 - 1}{2} = 2
+   $$
+   ```
 `;
 
 // Helper to parse multiple keys
 const parseKeys = (apiKeyString: string): string[] => {
   if (!apiKeyString) return [];
-  // Split by newline or comma, trim, and filter out empty strings
   return apiKeyString
     .split(/[\n,]+/)
     .map(k => k.trim())
@@ -70,7 +173,7 @@ const callGeminiWithKey = async (
     contents: contents.length > 1 ? { parts: contents } : contents[0].text,
     config: {
       systemInstruction: SYSTEM_INSTRUCTION,
-      temperature: 0.2, // Low temp for precision
+      temperature: 0.2,
     },
   });
   return response;
@@ -99,10 +202,30 @@ export const generateLessonPlan = async (
       }
     });
   }
-  contents.push({ text: prompt });
+  
+  // Add enhanced prompt with math and image instructions
+  const enhancedPrompt = `
+${prompt}
+
+⚠️ LƯU Ý QUAN TRỌNG VỀ ĐỊNH DẠNG:
+
+1. CÔNG THỨC TOÁN HỌC:
+   - Inline: $công_thức$ (ví dụ: $x^2 + 2x + 1 = 0$)
+   - Display: $$công_thức$$ (công thức riêng, căn giữa)
+   - PHẢI dùng LaTeX syntax: \\frac, \\sqrt, \\pm, \\neq, v.v.
+
+2. HÌNH ẢNH (nếu có trong file):
+   - Đánh dấu vị trí: [IMAGE_PLACEHOLDER_1], [IMAGE_PLACEHOLDER_2],...
+   - Thêm chú thích: *Hình X: Mô tả*
+   - Mô tả chi tiết nội dung ảnh
+
+3. XUẤT RA MARKDOWN CHUẨN với bảng, công thức, và placeholder ảnh.
+`;
+  
+  contents.push({ text: enhancedPrompt });
 
   // 3. Model Selection
-  const modelId = "gemini-2.5-flash"; 
+  const modelId = "gemini-2.0-flash-exp"; 
 
   // 4. Retry Loop
   let lastError: any = null;
@@ -118,28 +241,29 @@ export const generateLessonPlan = async (
          throw new Error("AI trả về kết quả rỗng.");
       }
       
-      // If successful, return immediately
-      return response.text;
+      // Post-process: Replace image placeholders with actual base64 if needed
+      let processedText = response.text;
+      
+      // If we have images in the input, we could extract and replace placeholders here
+      // For now, we just return the text with placeholders
+      
+      return processedText;
 
     } catch (error: any) {
       console.warn(`Key ${i + 1} failed:`, error.message);
       lastError = error;
 
-      // Analyze error to decide if we should continue
       const isRetryable = 
-        error.message?.includes('429') || // Quota exceeded
-        error.message?.includes('500') || // Server error
-        error.message?.includes('503') || // Service unavailable
-        error.message?.includes('403') || // Permission denied
-        error.message?.includes('fetch failed'); // Network blip
+        error.message?.includes('429') ||
+        error.message?.includes('500') ||
+        error.message?.includes('503') ||
+        error.message?.includes('403') ||
+        error.message?.includes('fetch failed');
 
       if (isRetryable && i < keys.length - 1) {
-        // Wait a short bit before trying next key to avoid rapid-fire issues
         await new Promise(r => setTimeout(r, 500));
-        continue; // Try next key
+        continue;
       }
-      
-      // If it's the last key, or a non-retryable error (like 400 Bad Request), logic continues below
     }
   }
 
