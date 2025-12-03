@@ -1,14 +1,24 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": "dist",
   "framework": "vite",
+  "buildCommand": "npm install && npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "devCommand": "npm run dev",
   "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
-  "env": {
-    "GEMINI_API_KEY": "@gemini_api_key"
-  }
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ]
 }
