@@ -18,6 +18,15 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
+      },
+      build: {
+        outDir: 'dist',
+        sourcemap: false,
+        rollupOptions: {
+          output: {
+            manualChunks: undefined
+          }
+        }
       }
     };
 });
