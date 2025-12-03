@@ -1,0 +1,12 @@
+/* Additional global styles if needed */
+/* Most styles are inline in index.html or using Tailwind */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+}
