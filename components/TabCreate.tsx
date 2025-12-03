@@ -1,8 +1,14 @@
 import React, { useState, useRef } from 'react';
 import { Subject, LessonPlanInput } from '../types';
-import { Upload, Sparkles, FileText, X, AlertCircle } from 'lucide-react';
+import { Upload, Sparkles, FileText, X, AlertCircle, Image } from 'lucide-react';
 import { generateLessonPlan, NLS_CONTEXT_REF } from '../services/geminiService';
 import { processUploadedFile, ProcessedFile } from '../utils/fileProcessing';
+import { 
+  extractImagesFromFile, 
+  createImagePlaceholderInstruction,
+  processContentWithImages,
+  ExtractedImage 
+} from '../utils/imageUtils';
 
 interface TabCreateProps {
   onResult: (result: string) => void;
@@ -23,6 +29,11 @@ const TabCreate: React.FC<TabCreateProps> = ({ onResult, onError, setLoading, ap
 
   const [fileName, setFileName] = useState<string | null>(null);
   const [pdfPart, setPdfPart] = useState<{mimeType: string, data: string} | undefined>(undefined);
+  const [extractedImages, setExtractedImages] = useState<ExtractedImage[]>([]);
+  const [fileInfo, setFileInfo] = useState<{ hasImages: boolean; imageCount: number }>({ 
+    hasImages: false, 
+    imageCount: 0 
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -36,12 +47,21 @@ const TabCreate: React.FC<TabCreateProps> = ({ onResult, onError, setLoading, ap
 
     try {
       setFileName("Đang xử lý file...");
+      
+      // Extract images first
+      const images = await extractImagesFromFile(file);
+      setExtractedImages(images);
+      setFileInfo({
+        hasImages: images.length > 0,
+        imageCount: images.length
+      });
+
+      // Process file content
       const processed: ProcessedFile = await processUploadedFile(file);
 
       if (processed.type === 'pdf_part') {
         setPdfPart({ mimeType: 'application/pdf', data: processed.content });
-        setFileName(`${processed.fileName}`);
-        // PDF content is handled via Vision
+        setFileName(`${processed.fileName} ${images.length > 0 ? `(${images.length} ảnh)` : ''}`);
       } else {
         // Word text
         setFormData(prev => ({ 
@@ -49,7 +69,7 @@ const TabCreate: React.FC<TabCreateProps> = ({ onResult, onError, setLoading, ap
             content: prev.content + processed.content 
         }));
         setPdfPart(undefined);
-        setFileName(`${processed.fileName}`);
+        setFileName(`${processed.fileName} ${images.length > 0 ? `(${images.length} ảnh)` : ''}`);
       }
     } catch (err: any) {
       onError(err.message);
@@ -60,6 +80,8 @@ const TabCreate: React.FC<TabCreateProps> = ({ onResult, onError, setLoading, ap
   const clearFile = () => {
       setFileName(null);
       setPdfPart(undefined);
+      setExtractedImages([]);
+      setFileInfo({ hasImages: false, imageCount: 0 });
       if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
@@ -74,16 +96,39 @@ const TabCreate: React.FC<TabCreateProps> = ({ onResult, onError, setLoading, ap
     setLoading(true);
     onError("");
 
+    // Build instruction for images if any
+    const imageInstruction = createImagePlaceholderInstruction(extractedImages.length);
+
     const prompt = `
       Hãy tạo PHỤ LỤC 4 – KẾ HOẠCH BÀI DẠY (GIÁO ÁN) theo Công văn 5512 
       và tích hợp Năng lực số theo Thông tư 02/2025 + Công văn 3456 
       cho môn ${formData.subject}, lớp ${formData.grade}, bài "${formData.lessonName}", thời lượng ${formData.duration}, 
       bộ sách ${formData.textbook}.
 
+      ${imageInstruction}
+
       YÊU CẦU ĐẶC BIỆT: VIẾT ĐẦY ĐỦ, CHI TIẾT, KHÔNG TÓM TẮT.
-      1. TRÌNH BÀY DẠNG BẢNG (MARKDOWN TABLE): Riêng phần Tiến trình dạy học phải được kẻ bảng 2 cột (| Hoạt động | Sản phẩm |).
-      2. KHÔNG ĐƯỢC DÙNG DẤU "...": Phải viết đầy đủ nội dung bài học, nhiệm vụ học tập, lời giảng của GV.
-      3. ĐỌC KỸ FILE ĐÍNH KÈM (Nếu có): Hãy lấy toàn bộ nội dung trong file để điền vào giáo án, không bỏ sót chi tiết nào.
+      
+      1. ĐỊNH DẠNG CÔNG THỨC TOÁN HỌC:
+         - Inline: $công_thức$ (ví dụ: $x^2 + 2x + 1 = 0$)
+         - Display (riêng dòng): $$công_thức$$
+         - Dùng LaTeX syntax: \\frac{tử}{mẫu}, \\sqrt{x}, x^2, \\neq, \\pm, etc.
+         
+         Ví dụ đúng:
+         - "Phương trình $ax^2 + bx + c = 0$ với $a \\neq 0$"
+         - Công thức nghiệm:
+           $$
+           x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}
+           $$
+      
+      2. TRÌNH BÀY DẠNG BẢNG (MARKDOWN TABLE): 
+         Riêng phần Tiến trình dạy học phải được kẻ bảng 2 cột (| Hoạt động | Sản phẩm |).
+      
+      3. KHÔNG ĐƯỢC DÙNG DẤU "...": 
+         Phải viết đầy đủ nội dung bài học, nhiệm vụ học tập, lời giảng của GV.
+      
+      4. ĐỌC KỸ FILE ĐÍNH KÈM (Nếu có): 
+         Hãy lấy toàn bộ nội dung trong file để điền vào giáo án, không bỏ sót chi tiết nào.
 
       CẤU TRÚC BẮT BUỘC:
       I. MỤC TIÊU (Có mục tiêu NLS + Mã)
@@ -103,7 +148,13 @@ const TabCreate: React.FC<TabCreateProps> = ({ onResult, onError, setLoading, ap
     `;
 
     try {
-      const result = await generateLessonPlan(prompt, pdfPart, apiKey);
+      let result = await generateLessonPlan(prompt, pdfPart, apiKey);
+      
+      // Post-process: replace image placeholders if we have extracted images
+      if (extractedImages.length > 0) {
+        result = processContentWithImages(result, extractedImages);
+      }
+      
       if (result) {
         onResult(result);
       } else {
@@ -237,12 +288,18 @@ const TabCreate: React.FC<TabCreateProps> = ({ onResult, onError, setLoading, ap
         {fileName && (
           <div className="mb-3 flex items-center justify-between gap-2 text-sm text-blue-700 bg-blue-50 p-2 px-3 rounded-lg border border-blue-100 shadow-sm animate-fade-in">
              <span className="flex items-center gap-2 truncate">
-               <FileText size={16} className="shrink-0"/> 
+               {fileInfo.hasImages ? <Image size={16} className="shrink-0 text-green-600"/> : <FileText size={16} className="shrink-0"/>}
                <span className="truncate font-medium">{fileName}</span>
              </span>
              <button type="button" onClick={clearFile} className="text-blue-400 hover:text-red-500 p-1 rounded-md hover:bg-white transition-colors">
                <X size={16} />
              </button>
+          </div>
+        )}
+
+        {fileInfo.hasImages && (
+          <div className="mb-3 text-xs text-green-700 bg-green-50 p-2 px-3 rounded-lg border border-green-100">
+            ✓ Phát hiện {fileInfo.imageCount} hình ảnh. AI sẽ mô tả và chèn ảnh vào đúng vị trí.
           </div>
         )}
 
