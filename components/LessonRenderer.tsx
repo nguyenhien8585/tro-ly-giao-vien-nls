@@ -5,6 +5,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeKatex from 'rehype-katex';
 import rehypeRaw from 'rehype-raw';
 import { Download, Copy, Check } from 'lucide-react';
+import { convertAllMathToImages, createWordDocument } from '../utils/mathUtils';
 
 interface LessonRendererProps {
   content: string;
@@ -12,6 +13,7 @@ interface LessonRendererProps {
 
 const LessonRenderer: React.FC<LessonRendererProps> = ({ content }) => {
   const [copied, setCopied] = React.useState(false);
+  const [exporting, setExporting] = React.useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const handleCopy = () => {
@@ -20,95 +22,49 @@ const LessonRenderer: React.FC<LessonRendererProps> = ({ content }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleExportWord = () => {
+  const handleExportWord = async () => {
     if (!contentRef.current) return;
 
-    // 1. Get HTML content
-    const contentHtml = contentRef.current.innerHTML;
-
-    // 2. Define Styles specifically for MS Word
-    // Word needs specific CSS to render tables borders correctly
-    const styles = `
-      <style>
-        @page {
-          size: A4;
-          margin: 2.54cm 2.54cm 2.54cm 2.54cm; /* Standard margins */
-        }
-        body {
-          font-family: 'Times New Roman', serif;
-          font-size: 13pt;
-          line-height: 1.5;
-          color: #000000;
-        }
-        h1 { font-size: 16pt; font-weight: bold; text-align: center; text-transform: uppercase; margin-bottom: 12pt; color: #000; }
-        h2 { font-size: 14pt; font-weight: bold; color: #0056b3; margin-top: 18pt; margin-bottom: 6pt; border-bottom: 1px solid #ddd; }
-        h3 { font-size: 13pt; font-weight: bold; margin-top: 12pt; margin-bottom: 6pt; }
-        p { margin-bottom: 6pt; text-align: justify; }
-        
-        /* TABLE STYLES FOR WORD */
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          border: 1px solid #000000;
-          margin-bottom: 12pt;
-        }
-        th {
-          background-color: #e6f7ff; /* Light Blue background */
-          border: 1px solid #000000;
-          padding: 8pt;
-          font-weight: bold;
-          text-align: center;
-          vertical-align: middle;
-        }
-        td {
-          border: 1px solid #000000; /* Force borders */
-          padding: 8pt;
-          vertical-align: top;
-          text-align: left;
-        }
-        
-        /* Lists */
-        ul, ol { margin-left: 18pt; margin-bottom: 12pt; }
-        li { margin-bottom: 3pt; }
-        
-        /* NLS Tags */
-        strong { font-weight: bold; color: #000; }
-        
-        /* Hide UI elements if any slipped in */
-        .no-print { display: none; }
-      </style>
-    `;
-
-    // 3. Construct the full HTML document for Word
-    // xmlns:w and xmlns:o namespaces help Word interpret the file
-    const fileContent = `
-      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
-        <head>
-          <meta charset="utf-8">
-          <title>Kế Hoạch Bài Dạy</title>
-          ${styles}
-        </head>
-        <body>
-          ${contentHtml}
-        </body>
-      </html>
-    `;
-
-    // 4. Create Blob and Download
-    // Using application/msword or html makes Word open it directly with formatting preserved
-    const blob = new Blob(['\ufeff', fileContent], {
-      type: 'application/msword'
-    });
+    setExporting(true);
     
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    // .doc extension ensures Word opens it in Print Layout mode usually
-    link.download = `KHBD_TichHopNLS_${new Date().toISOString().slice(0, 10)}.doc`;
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+      console.log('Starting Word export with math formula conversion...');
+
+      // Convert all math formulas to base64 images
+      const processedContainer = await convertAllMathToImages(contentRef.current, {
+        scale: 3, // High resolution
+        backgroundColor: 'white',
+        foregroundColor: 'black'
+      });
+
+      // Get HTML content
+      const htmlContent = processedContainer.innerHTML;
+
+      // Create Word document
+      const wordDocument = createWordDocument(htmlContent);
+
+      // Create and download file
+      const blob = new Blob(['\ufeff', wordDocument], {
+        type: 'application/msword'
+      });
+      
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `KHBD_TichHopNLS_${new Date().toISOString().slice(0, 10)}.doc`;
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      console.log('✓ Word export completed successfully!');
+    } catch (error) {
+      console.error('Error exporting to Word:', error);
+      alert('Có lỗi xảy ra khi xuất file Word. Vui lòng thử lại.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -125,16 +81,17 @@ const LessonRenderer: React.FC<LessonRendererProps> = ({ content }) => {
           </button>
           <button
             onClick={handleExportWord}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 border border-blue-600 rounded hover:bg-blue-700 transition-colors shadow-sm"
+            disabled={exporting}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-white bg-blue-600 border border-blue-600 rounded hover:bg-blue-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Download size={14} />
-            Tải File Word Đẹp
+            <Download size={14} className={exporting ? 'animate-bounce' : ''} />
+            {exporting ? 'Đang xử lý...' : 'Tải File Word Đẹp'}
           </button>
         </div>
       </div>
       
       <div className="flex-1 overflow-auto p-8 bg-white">
-        {/* We use a ref here to capture the HTML for export */}
+        {/* Reference div for export */}
         <div ref={contentRef} className="prose prose-slate prose-sm md:prose-base max-w-none markdown-body">
             <ReactMarkdown
               remarkPlugins={[remarkMath, remarkGfm]}
